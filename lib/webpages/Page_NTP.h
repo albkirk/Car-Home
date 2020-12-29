@@ -2,13 +2,13 @@
 const char PAGE_NTPConfiguration[] PROGMEM = R"=====(
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<a href="/"  class="btn btn--s"><</a>&nbsp;&nbsp;<strong>NTP Configuration</strong>
+<a href="admin.html"  class="btn btn--s"><</a>&nbsp;&nbsp;<strong>NTP Configuration</strong>
 <hr>
 <form action="" method="get">
 <table border="0"  cellspacing="0" cellpadding="3" >
 <tr><td align="right">NTP Server:</td><td><input type="text" id="ntpserver" name="ntpserver" maxlength="172" value=""></td></tr>
-<tr><td align="right">Update:</td><td><input type="text" id="update" name="update" size="3"maxlength="6" value=""> minutes (0=disable)</td></tr>
-<tr><td>Timezone</td><td>
+<tr><td align="right">Update:</td><td><input type="text" id="update" name="update" size="3"maxlength="6" value=""> minutes</td></tr>
+<tr><td>Timezone:</td><td>
 <select  id="tz" name="tz">
   <option value="-120">(GMT-12:00)</option>
   <option value="-110">(GMT-11:00)</option>
@@ -46,7 +46,10 @@ const char PAGE_NTPConfiguration[] PROGMEM = R"=====(
   <option value="130">(GMT+13:00)</option>
 </select>
 </td></tr>
-<tr><td align="right">Daylight saving:</td><td><input type="checkbox" id="dst" name="dst"></td></tr>
+<tr><td align="right">Daylight :</td><td><input type="checkbox" id="dst" name="dst"></td></tr>
+<tr><td align="right">NTP Sync:</td><td><input type="checkbox" checked disabled id="sync" name="sync"></td></tr>
+<tr><td align="right">Date/Time:</td><td><span id="x_ntp"></span></td></tr>
+
 <tr><td colspan="2" align="center"><input type="submit" style="width:150px" class="btn btn--m btn--blue" value="Save"></td></tr>
 </table>
 </form>
@@ -78,16 +81,16 @@ void send_NTP_configuration_html()
     config.isDayLightSaving = false;
     String temp = "";
     for ( uint8_t i = 0; i < MyWebServer.args(); i++ ) {
-      if (MyWebServer.argName(i) == "ntpserver") config.NTPServerName = urldecode( MyWebServer.arg(i)); 
+      if (MyWebServer.argName(i) == "ntpserver") strcpy(config.NTPServerName, urldecode( MyWebServer.arg(i)).c_str());
       if (MyWebServer.argName(i) == "update") config.Update_Time_Via_NTP_Every =  MyWebServer.arg(i).toInt(); 
       if (MyWebServer.argName(i) == "tz") config.TimeZone =  MyWebServer.arg(i).toInt(); 
       if (MyWebServer.argName(i) == "dst") config.isDayLightSaving = true; 
     }
     storage_write();
-   
+    storage_print();
     firstStart = true;
   }
-  MyWebServer.send_P ( 200, "text/html", PAGE_NTPConfiguration ); 
+  MyWebServer.send ( 200, "text/html", PAGE_NTPConfiguration ); 
   Serial.println(__FUNCTION__); 
   
 }
@@ -96,13 +99,17 @@ void send_NTP_configuration_html()
 
 void send_NTP_configuration_values_html()
 {
-    
+
+  getNTPtime();
+  curDateTime();
   String values ="";
   values += "ntpserver|" + (String) config.NTPServerName + "|input\n";
-  values += "update|" +  (String) config.Update_Time_Via_NTP_Every + "|input\n";
-  values += "tz|" +  (String) config.TimeZone + "|input\n";
-  values += "dst|" +  (String) (config.isDayLightSaving ? "checked" : "") + "|chk\n";
+  values += "update|" + (String) config.Update_Time_Via_NTP_Every + "|input\n";
+  values += "tz|" + (String) config.TimeZone + "|input\n";
+  values += "dst|" + (String) (config.isDayLightSaving ? "checked" : "") + "|chk\n";
+  values += "sync|" + (String) (NTP_Sync ? "checked" : "") + "|chk\n";
+  values += "x_ntp|" + (String) WeekDays[DateTime.wday] + ", " + (String) DateTime.year + "/" + (String) DateTime.month + "/" + (String) DateTime.day + "   " + (String) DateTime.hour + ":" + (String) DateTime.minute + ":" + (String)  DateTime.second + "|div\n";
   MyWebServer.send ( 200, "text/plain", values);
   Serial.println(__FUNCTION__); 
-  AdminTimeOutCounter=0;
+
 }

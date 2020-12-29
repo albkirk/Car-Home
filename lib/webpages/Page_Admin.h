@@ -4,15 +4,22 @@
 //  HTML PAGE
 //
 
+//<strong>Information</strong>
+//<hr>
+//<a href="info.html"   style="width:250px"  class="btn btn--m btn--blue" >Detailed Information</a><br>
+//<strong>Configuration</strong>
+
 const char PAGE_AdminMainPage[] PROGMEM = R"=====(
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<strong>Administration</strong>
+
+<strong>Administration Page</strong>
 <hr>
 <a href="general.html" style="width:250px" class="btn btn--m btn--blue" >General Configuration</a><br>
-<a href="config.html" style="width:250px" class="btn btn--m btn--blue" >Network Configuration</a><br>
-<a href="info.html"   style="width:250px"  class="btn btn--m btn--blue" >Network Information</a><br>
+<a href="wireless.html" style="width:250px" class="btn btn--m btn--blue" >Wireless Configuration</a><br>
+<a href="mqtt.html" style="width:250px" class="btn btn--m btn--blue" >MQTT Configuration</a><br>
 <a href="ntp.html"   style="width:250px"  class="btn btn--m btn--blue" >NTP Configuration</a><br>
 <a href="reset.html"   style="width:250px"  class="btn btn--m btn--blue" >Factory Reset</a><br>
+<a href="savequit.html"   style="width:250px"  class="btn btn--m btn--blue" >Save & Quit</a><br>
 
 <script>
 window.onload = function ()

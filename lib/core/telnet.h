@@ -11,11 +11,14 @@ WiFiClient telnetClient;
 WiFiClient newClient;
 
 void telnet_setup() {
+    if (config.TELNET){
 	   //start Telnet service
 	   telnetServer.begin();
 	   telnetServer.setNoDelay(true);
-	   Serial.println("Please, Open Telnet Client.");
+	   Serial.println("Telnet Service READY.");
 	   bufferPrint.reserve(BUFFER_PRINT);
+    }
+    else telnetServer.close();
 }
 
 void telnet_loop() {
