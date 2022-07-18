@@ -11,6 +11,20 @@
 
 bool Load_Default = true;                   // Will it Load Default values? It means it's running for first time.  
 
+#ifndef custo_strDateTime
+struct strDateTime                          // Date & Time Struture for usage on NTP, and Alarm Clock
+{
+  byte hour;
+  byte minute;
+  byte second;
+  int year;
+  byte month;
+  byte day;
+  byte wday;
+};
+#endif
+
+
 
 //
 //  AUXILIAR functions to handle EEPROM
@@ -92,17 +106,30 @@ struct __attribute__((__packed__)) strConfig {
   long UPDATE_Port;
   char UPDATE_User[16];
   char UPDATE_Password[32];
+  char SIMCardPIN[5];
+  char APN[128];
+  char MODEM_User[32];
+  char MODEM_Password[32];
   char WEB_User[16];
   char WEB_Password[32];
-  bool SWITCH_Default;
   float Temp_Corr;
   float LDO_Corr;
   bool HW_Module;
   bool HASSIO_CFG;
+  bool DEBUG;
   bool SW_Upgraded;
+  bool SWITCH_Default;
+  unsigned int UPPER_LEVEL;
+  unsigned int LOWER_LEVEL;
+  long MIN_TRAVEL;
+  long MAX_TRAVEL;
   double Voltage_Multiplier;
   double Current_Multiplier;
   double Power_Multiplier;
+  char InitColor[10];
+  byte Volume;
+  bool Alarm_State;
+  strDateTime AlarmDateTime;  
 } config;
 
 
@@ -113,53 +140,48 @@ struct __attribute__((__packed__)) strConfig {
 //  STORAGE functions
 //
 void storage_print() {
-
-  Serial.printf("Printing Config [%d bytes]\n", sizeof(config));
-  if (sizeof(config) + 16 > Mem_Start_Pos) Serial.println ("WARNING: Memory zones overlapinng!!");
-  Serial.printf("Device Name: %s and Location: %s\n", config.DeviceName, config.Location);
-  Serial.printf("ON time[sec]: %d  -  SLEEP Time[min]: %d -  DEEPSLEEP enabled: %d\n", config.ONTime, config.SLEEPTime, config.DEEPSLEEP);
-  Serial.printf("LED enabled: %d   -  TELNET enabled: %d  -  OTA enabled: %d  -  WEB enabled: %d\n", config.LED, config.TELNET, config.OTA, config.WEB);
-  Serial.printf("WiFi AP Mode: %d  -  WiFi STA Mode: %d   -  WiFi SSID: %s  -  WiFi Key: %s\n", config.APMode, config.STAMode, config.SSID, config.WiFiKey);
+    Serial.printf("Config Size: [%d bytes]\n", sizeof(config));
+    if (sizeof(config) + 16 > Mem_Start_Pos) Serial.println ("WARNING: Memory zones overlapinng!!");
+    Serial.printf("Device Name: %s and Location: %s\n", config.DeviceName, config.Location);
+    Serial.printf("ON time[sec]: %d  -  SLEEP Time[min]: %d -  DEEPSLEEP enabled: %d\n", config.ONTime, config.SLEEPTime, config.DEEPSLEEP);
+    Serial.printf("LED enabled: %d   -  TELNET enabled: %d  -  OTA enabled: %d  -  WEB enabled: %d\n", config.LED, config.TELNET, config.OTA, config.WEB);
+    Serial.printf("WiFi AP Mode: %d  -  WiFi STA Mode: %d   -  WiFi SSID: %s  -  WiFi Key: %s\n", config.APMode, config.STAMode, config.SSID, config.WiFiKey);
   
-  Serial.printf("DHCP enabled: %d\n", config.DHCP);
-  if(!config.DHCP) {
+    Serial.printf("DHCP enabled: %d\n", config.DHCP);
+    if(!config.DHCP) {
       Serial.printf("IP: %d.%d.%d.%d\t", config.IP[0],config.IP[1],config.IP[2],config.IP[3]);
       Serial.printf("Mask: %d.%d.%d.%d\t", config.Netmask[0],config.Netmask[1],config.Netmask[2],config.Netmask[3]);
       Serial.printf("Gateway: %d.%d.%d.%d\n", config.Gateway[0],config.Gateway[1],config.Gateway[2],config.Gateway[3]);
       Serial.printf("DNS IP: %d.%d.%d.%d\t", config.DNS_IP[0],config.DNS_IP[1],config.DNS_IP[2],config.DNS_IP[3]);
-  }
-  Serial.printf("MQTT Server: %s  -  Port: %ld  -  Secure: %d  -  ", config.MQTT_Server, config.MQTT_Port, config.MQTT_Secure);
-  Serial.printf("MQTT User: %s  -  MQTT Pass: %s\n", config.MQTT_User, config.MQTT_Password);
-  Serial.printf("NTP Server Name: %s\t", config.NTPServerName);
-  Serial.printf("NTP update every %ld minutes.\t", config.Update_Time_Via_NTP_Every);
-  Serial.printf("Timezone: %ld  -  DayLight: %d\n", config.TimeZone, config.isDayLightSaving);
+    }
+    Serial.printf("MODEM APN: %s  -  User: %s  -  Pass: %s  -  PIN: %s\n", config.APN, config.MODEM_User, config.MODEM_Password, config.SIMCardPIN);
+    Serial.printf("MQTT Server: %s  -  Port: %ld  -  Secure: %d  -  ", config.MQTT_Server, config.MQTT_Port, config.MQTT_Secure);
+    Serial.printf("MQTT User: %s  -  MQTT Pass: %s\n", config.MQTT_User, config.MQTT_Password);
+    Serial.printf("NTP Server Name: %s\t", config.NTPServerName);
+    Serial.printf("NTP update every %ld minutes.\t", config.Update_Time_Via_NTP_Every);
+    Serial.printf("Timezone: %ld  -  DayLight: %d\n", config.TimeZone, config.isDayLightSaving);
 
-  Serial.printf("Remote Allowed: %d\t", config.Remote_Allow);
-  Serial.printf("WEB User: %s  -  WEB Pass: %s\n", config.WEB_User, config.WEB_Password);
-  Serial.printf("SWITCH default status: %d\t", config.SWITCH_Default);
-  Serial.printf("Temperature Correction: %f\t", config.Temp_Corr);
-  Serial.printf("LDO Voltage Correction: %f\n", config.LDO_Corr);
-  }
-
+    Serial.printf("HW Module: %d  -  Remote Allowed: %d  -  WEB User: %s  -  WEB Pass: %s\n", config.HW_Module, config.Remote_Allow, config.WEB_User, config.WEB_Password);
+    Serial.printf("SWITCH default: %d  -  Temperature Correction: %.2f  -  Voltage Correction: %.2f\n", config.SWITCH_Default, config.Temp_Corr, config.LDO_Corr);
+}
 
 boolean storage_read() {
-  Serial.println("Reading Configuration");
+    //if (config.DEBUG) Serial.println("Reading Configuration");
     if (EEPROM.read(0) == 'C' && EEPROM.read(1) == 'F'  && EEPROM.read(2) == 'G' && EEPROMReadlong(3) > 2 && EEPROMReadlong(3) == sizeof(config)) {
-        Serial.println("Configurarion Found!");
+        //if (config.DEBUG) Serial.println("Configurarion Found!");
         loadStruct(&config, EEPROMReadlong(3), 15);     // I just decided that it will read/write after address 15
       return false;   // "false" means no error
     }
     else {
-    Serial.println("Configurarion NOT FOUND!!!!");
+    if (config.DEBUG) Serial.println("Configurarion NOT FOUND!!!!");
         //Serial.println("Value of 0,1,2: " + String(EEPROM.read(0)) + String(EEPROM.read(1)) + String(EEPROM.read(2)));
         //Serial.println("Value of 3: " + String(EEPROMReadlong(3)));
     return true;      // "true" means failed to read configuration
   }
 }
 
-
 void storage_write() {
-  Serial.println("Writing Config");
+  if (config.DEBUG) Serial.println("Writing Config");
   EEPROM.write(0, 'C');
   EEPROM.write(1, 'F');
   EEPROM.write(2, 'G');
@@ -171,69 +193,8 @@ void storage_write() {
   //Serial.println("Value of 3 READ: " + String(EEPROMReadlong(3)));
 }
 
-
-bool storage_save_data(const char *data_source, uint8_t size, int start_address = Mem_Start_Pos) {
-    int pointer = start_address -1;
-    uint8_t data_lenght = 0;
-    char data;
-    do
-    {
-      pointer = pointer + data_lenght + 1;              // +1 is needed to add mem slot (uint8) that indicates the lenght of data
-      data_lenght = EEPROM.read(pointer);
-    } while (data_lenght > 0 && pointer < EEPROMZize);
-    
-    if ( (size + pointer) >= EEPROMZize ) {           // It means it don't have space to write the data.
-        Serial.println("NOT enough space in storage to save data ! ! !");
-        return false;
-    }
-
-    EEPROM.write(pointer, size);                        // writing the size of data at position "0"   
-    //Serial.printf("Wrote Length : %d\n", EEPROM.read(pointer));
-    for(uint8_t i = 0; i < size; i++) {
-          data = data_source[i];
-          Serial.print(data);
-          EEPROM.write(i + pointer + 1, data);          // offseting 1 because the position "0" stores the data lenght
-    }
-    Serial.printf("SAVE_DATA --> pointer: %d \t data Lenght: %d\n", pointer, size);
-    EEPROM.write(pointer + size + 1, 0);                // writing 0 to indicate that MEM is free after this address
-    EEPROM.commit();
-    return true;                                        // true means all went OK
-}
-
-
-int storage_get_data(String *data_dest, int start_address = Mem_Start_Pos) {
-    int pointer = start_address -1;                     // address position where is indicated the lenght of data
-    uint8_t data_lenght = 0;                            // start on -1 because I'm adding +1 on every interaction
-    do
-    {
-        pointer = pointer + data_lenght + 1;            // +1 is needed to add mem slot (uint8) that indicates the lenght of data
-        data_lenght = EEPROM.read(pointer);
-    } while (data_lenght > 0 && EEPROM.read(pointer + data_lenght + 1) > 0);
-
-    if (pointer == start_address && data_lenght == 0 ) return 0;              // it means that there is no data stored
-    
-    Serial.printf("GET_DATA --> pointer: %d \t data Lenght: %d\n", pointer, data_lenght);
-
-    char data_buff[data_lenght];
-    for(size_t i = 0; i < data_lenght; i++) {
-        data_buff[i] = EEPROM.read(i + pointer + 1);
-    }
-    data_buff[data_lenght] = 0;
-    *data_dest = String(data_buff);
-    //Serial.println(*data_dest);
-    return pointer; 
-}
-
-
-void storage_clean_data(int address) {
-  if (address != 0) EEPROM.write(address, 0);
-  EEPROM.commit();
-}
-
-
-
 void storage_reset() {
-  Serial.println("Reseting Config");
+  if (config.DEBUG) Serial.println("Reseting Config");
   EEPROM.write(0, 'R');
   EEPROM.write(1, 'S');
   EEPROM.write(2, 'T');
@@ -252,5 +213,5 @@ void storage_setup() {
         config_defaults();
         storage_write();
     }
-    storage_print();
+    if (config.DEBUG) storage_print();
 }

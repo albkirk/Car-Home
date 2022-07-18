@@ -18,7 +18,7 @@ Save and quit to start in normal operation.<br>
 
 function SaveQuit()
 {
-	setValues("/admin/savequit");
+    setValues("/admin/savequit");
 }
 
 window.onload = function ()
@@ -49,15 +49,15 @@ The Web Server is no longer enabled. Please, close this web page.
 
 void send_save_quit_html()
 {
-		yield();
+        yield();
     MyWebServer.send ( 200, "text/html", PAGE_Save_Quit );
-		Serial.println(__FUNCTION__);
+        telnet_println(__FUNCTION__);
 }
 
 void execute_save_quit_html()
 {
-		Serial.println("Web Page Save & Quit button pushed!!! ");
- 		MyWebServer.send ( 200, "text/html", PAGE_SaveAndQuit );
+        telnet_println("Web Page Save & Quit button pushed!!! ");
+         MyWebServer.send ( 200, "text/html", PAGE_SaveAndQuit );
 
     MyWebServer.stop();
     config.TELNET = false;
@@ -66,5 +66,5 @@ void execute_save_quit_html()
     config.APMode = false;
     config.LED = false;
     storage_write();
-		ESPRestart();
+        ESPRestart();
 }

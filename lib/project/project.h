@@ -7,7 +7,7 @@
 
 
 int scanTime = 5; //In seconds
-long TimeOUT = 15000;  // [ms] time to consider not having the BT beacon present 
+long TimeOUT = 25000;  // [ms] time to consider not having the BT beacon present 
 std::stringstream ss;
 BLEScan* pBLEScan;
 
@@ -78,7 +78,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       for (size_t i = 0; i < carro_max; i++)
       {
           if (String(advertisedDevice.getAddress().toString().c_str()) == carro[i].BT) { 
-              telnet_println("RedBear found!");
+              telnet_println("Car found!");
               carro[i].na_garagem = true;
               carro[i].last_time_na_gar = millis();
               char *pHex = BLEUtils::buildHexData(nullptr, (uint8_t*)advertisedDevice.getManufacturerData().data(), advertisedDevice.getManufacturerData().length());

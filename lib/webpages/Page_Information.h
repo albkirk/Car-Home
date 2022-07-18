@@ -1,5 +1,5 @@
-#ifndef PAGE_INFOMATION_H
-#define PAGE_INFOMATION_H
+#ifndef PAGE_INFORMATION_H
+#define PAGE_INFORMATION_H
 
 
 //

@@ -10,6 +10,7 @@ extern "C" {
 */
 
 // WiFi VARIABLEs
+#define WL_RADIO_OFF 7
 static const String WIFI_state_Name[] = {
 	"WL_IDLE_STATUS",			// 0
     "WL_NO_SSID_AVAIL",			// 1
@@ -18,6 +19,7 @@ static const String WIFI_state_Name[] = {
     "WL_CONNECT_FAILED",		// 4
     "WL_CONNECTION_LOST",		// 5
     "WL_DISCONNECTED"			// 6
+    "WL_RADIO_OFF"              // 7
 };
 int WIFI_state = WL_DISCONNECTED;
 int Last_WIFI_state = WL_NO_SHIELD;
@@ -32,18 +34,23 @@ String WIFI_state_string(int wifistate = WIFI_state) {
     return WIFI_state_Name[WIFI_state];
 }
 
-// void wifi_disconnect() {}                    // defined on 8266_HW.h and esp32.h file
+void wifi_disconnect() {
+    esp_wifi_disconnect();
+    WIFI_state = WL_RADIO_OFF;
+}
 
 void wifi_connect() {
-  //  Connect to WiFi acess point or start as Acess point
-//  if ( WiFi.status() != WL_CONNECTED ) {
+    //  Connect to Local wireless network or start as Access Point
+    if ( WiFi.status() != WL_CONNECTED) {
         if (config.APMode) {
             if (config.STAMode) WiFi.mode(WIFI_AP_STA);     // Setup ESP in AP+Station  mode
             else WiFi.mode(WIFI_AP);                        // Setup ESP in AP only mode
         }
         else {
-            config.STAMode = true;                           // To force having any conectivity
-            WiFi.mode(WIFI_STA);                             // Setup ESP in Station only mode
+            #ifndef Modem
+                config.STAMode = true;                      // To force having any conectivity to the world
+            #endif
+            if (config.STAMode) WiFi.mode(WIFI_STA);        // Setup ESP in Station only mode
         }
 
         if (config.STAMode) {
@@ -61,39 +68,39 @@ void wifi_connect() {
             wifi_hostname();
             if( RTC_read() && (ESPWakeUpReason() == "Deep-Sleep Wake") ) {
                 // The RTC data was good, make a quick connection
-                Serial.print("Waking from DeepSleep and connecting to WiFi using RTD data and Static IP... ");
+                if (config.DEBUG) Serial.print("Waking from DeepSleep and connecting to WiFi using RTD data and Static IP... ");
                 WiFi.begin( config.SSID, config.WiFiKey, rtcData.LastWiFiChannel, rtcData.bssid, true );
                 WIFI_state = wifi_waitForConnectResult(2000);
                 if ( WIFI_state != WL_CONNECTED ) {
-                    Serial.println(" ---ERROR!?!. Trying using config values. ");
+                    if (config.DEBUG) Serial.println(" ---ERROR!?!. Trying using config values. ");
                     if (config.DHCP) WiFi.config((uint32_t)0x0, (uint32_t)0x0, (uint32_t)0x0, (uint32_t)0x0);
                     WiFi.begin(config.SSID, config.WiFiKey);
-                    WIFI_state = wifi_waitForConnectResult(5000);
+                    WIFI_state = wifi_waitForConnectResult(10000);
                 };
             }
             else {
                 // The RTC data was not valid, so make a regular connection
-                Serial.print("NO RTD data or NOT waking from DeepSleep. Using configured WiFi values ... ");
+                if (config.DEBUG) Serial.print("NO RTD data or NOT waking from DeepSleep. Using configured WiFi values ... ");
                 WiFi.begin(config.SSID, config.WiFiKey);
                 WIFI_state = wifi_waitForConnectResult(10000);
             }
             if ( WIFI_state == WL_CONNECTED ) {
-                Serial.print("Connected to WiFi network! " + String(config.SSID) + " IP: "); Serial.println(WiFi.localIP());
-                //rtcData.LastWiFiChannel = uint(wifi_get_channel);
+                if (config.DEBUG) { Serial.print("Connected to WiFi network! " + String(config.SSID) + " IP: "); Serial.println(WiFi.localIP());}
+
                 //if (!MDNS.begin(host_name)) {             // Start the mDNS responder for "host_name.local" domain
                 //    Serial.println("Error setting up MDNS responder!");
                 //}
                 //else Serial.println("mDNS responder started");
             }
-            else Serial.println( "WiFI ERROR! ==> " + WIFI_state_string(WIFI_state));
+            else if (config.DEBUG) Serial.println( "WiFI ERROR! ==> " + WIFI_state_string(WIFI_state));
         }
         if (config.APMode) {
             WiFi.softAP(ESP_SSID.c_str());
             //WiFi.softAP(config.SSID);
-            Serial.print("WiFi in AP mode, with IP: "); Serial.println(WiFi.softAPIP());
+            if (config.DEBUG) { Serial.print("WiFi in AP mode, with IP: "); Serial.println(WiFi.softAPIP());}
         }
-//  }
-//  else WIFI_state = WL_CONNECTED;
+    }
+    else WIFI_state = WL_CONNECTED;
 }
 
 
@@ -102,16 +109,18 @@ void wifi_setup() {
 }
 
 void wifi_loop() {
-    if ( WiFi.status() != WL_CONNECTED ) {
-        if ( millis() - WIFI_LastTime > (WIFI_Retry * 1000)) {
-            WIFI_errors ++;
-            Serial.println( "in loop function WiFI ERROR! #: " + String(WIFI_errors) + "  ==> " + WIFI_state_string(WiFi.status()));
-            WIFI_LastTime = millis();
-            wifi_connect();
+    if(WIFI_state != WL_RADIO_OFF) {
+        if ( WiFi.status() != WL_CONNECTED ) {
+            if ( millis() - WIFI_LastTime > (WIFI_Retry * 1000)) {
+                WIFI_errors ++;
+                if (config.DEBUG) { Serial.println( "in loop function WiFI ERROR! #: " + String(WIFI_errors) + "  ==> " + WIFI_state_string(WiFi.status())); }
+                WIFI_LastTime = millis();
+                wifi_connect();
+            }
         }
-    }
-    else {
-        if (WIFI_state != WL_CONNECTED) WIFI_state = WL_CONNECTED;
+        else {
+            if (WIFI_state != WL_CONNECTED) WIFI_state = WL_CONNECTED;
+        }
     }
     yield();
 }

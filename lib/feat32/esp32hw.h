@@ -1,14 +1,24 @@
 #include <wifi.h>
+//#include <BLEDevice.h>
+#include <rom/rtc.h>
 #include <Preferences.h>
 #include <WebServer.h>
+#ifdef IP5306
+    #include <ip5306.h>
+#endif
+#include <myulp.h>
+
 
 uint32_t getChipId();
 String HEXtoUpperString(uint32_t hexval, uint hexlen);
 
 //System Parameters
 String ChipID=HEXtoUpperString(getChipId(), 6);
-#define ESP_SSID String("ESP-" + ChipID)                // SSID used as Acces Point
-#define Number_of_measures 5                           // Number of value samples (measurements) to calculate average
+#define ESP_SSID String("ESP-" + ChipID)    // SSID to use as Access Point
+#define Number_of_measures 5                // Number of value samples (measurements) to calculate average
+byte SLEEPTime = config.SLEEPTime;          // Variable to allow temporary change the sleeptime (ex.: = 0)
+bool Celular_Connected = false;             // Modem Connection state
+
 
 // The ESP8266 RTC memory is arranged into blocks of 4 bytes. The access methods read and write 4 bytes at a time,
 // so the RTC data structure should be padded to a 4-byte multiple.
@@ -22,9 +32,6 @@ struct __attribute__((__packed__)) struct_RTC {
 
 Preferences preferences;                    // Preferences library is wrapper around Non-volatile storage on ESP32 processor.
 
-WebServer MyWebServer(80);                  // The Webserver used to manage the ESP
-
-
 /*
 // ADC to internal voltage
 #if Using_ADC == false
@@ -33,9 +40,18 @@ WebServer MyWebServer(80);                  // The Webserver used to manage the 
 */
 #define Default_ADC_PIN 36
 
+// Initialize the Webserver
+WebServer MyWebServer(80);
+
+// initialize WiFi Security
+// WiFiSec WiFiSec(CA_CERT_PROG, CLIENT_CERT_PROG, CLIENT_KEY_PROG);
+WiFiClient secureclient;                    // Use this for secure connection
+WiFiClient unsecuclient;                    // Use this for unsecure connection
+
+
 // Battery & ESP Voltage
 #define Batt_Max float(4.1)                 // Battery Highest voltage.  [v]
-#define Batt_Min float(3.0)                 // Battery lowest voltage.   [v]
+#define Batt_Min float(2.8)                 // Battery lowest voltage.   [v]
 #define Vcc float(3.3)                      // Theoretical/Typical ESP voltage. [v]
 #define VADC_MAX float(3.3)                 // Maximum ADC Voltage input
 
@@ -45,7 +61,7 @@ unsigned long Extend_time=0;                // [sec]
 unsigned long now_millis=0;
 unsigned long Pace_millis=3000;
 unsigned long LED_millis=300;               // 10 slots available (3000 / 300)
-unsigned long BUZZER_millis=500;            // 6 Buzz beeps maximum  (3000 / 500)
+unsigned long BUZZER_millis=100;            // Buzz time (120ms Sound + 120ms  Silent)
 
 
 // Standard Actuators STATUS
@@ -117,18 +133,22 @@ uint32_t calculateCRC32( const uint8_t *data, size_t length ) {
 void keep_IP_address() {
 if (config.DHCP) {
   if (  WiFi.status() == WL_CONNECTED && IPAddress(config.IP[0], config.IP[1], config.IP[2], config.IP[3]) != WiFi.localIP() ) {
-    Serial.print("OLD: "); Serial.print(IPAddress(config.IP[0], config.IP[1], config.IP[2], config.IP[3])); Serial.print("\t NEW: "); Serial.println(WiFi.localIP());
+    if (config.DEBUG) {Serial.print("OLD: "); Serial.print(IPAddress(config.IP[0], config.IP[1], config.IP[2], config.IP[3])); Serial.print("\t NEW: "); Serial.println(WiFi.localIP());}
     config.IP[0] = WiFi.localIP()[0]; config.IP[1] = WiFi.localIP()[1]; config.IP[2] = WiFi.localIP()[2]; config.IP[3] = WiFi.localIP()[3];
     config.Netmask[0] = WiFi.subnetMask()[0]; config.Netmask[1] = WiFi.subnetMask()[1]; config.Netmask[2] = WiFi.subnetMask()[2]; config.Netmask[3] = WiFi.subnetMask()[3];
     config.Gateway[0] = WiFi.gatewayIP()[0]; config.Gateway[1] = WiFi.gatewayIP()[1]; config.Gateway[2] = WiFi.gatewayIP()[2]; config.Gateway[3] = WiFi.gatewayIP()[3];
     config.DNS_IP[0] = WiFi.dnsIP()[0]; config.DNS_IP[1] = WiFi.dnsIP()[1]; config.DNS_IP[2] = WiFi.dnsIP()[2]; config.DNS_IP[3] = WiFi.dnsIP()[3];
-    Serial.println("Storing new Static IP address for quick boot");
+    if (config.DEBUG) Serial.println("Storing new Static IP address for quick boot");
     storage_write();
     }
 }
 }
 
-void wifi_disconnect() {
+void myconfigTime(const char* tz, const char* server1, const char* server2, const char* server3) {
+    configTzTime(tz, server1, server2, server3);
+}
+
+void esp_wifi_disconnect() {
     WiFi.mode(WIFI_MODE_NULL);
 }
 
@@ -153,10 +173,12 @@ bool RTC_read() {
         // Calculate the CRC of what we just read from RTC memory, but skip the first 4 bytes as that's the checksum itself.
         uint32_t crc = calculateCRC32( ((uint8_t*)&rtcData) + 4, sizeof( rtcData ) - 4 );
         if( crc == rtcData.crc32 ) {
+            if (config.DEBUG) {
              Serial.print("Read  crc: " + String(rtcData.crc32) + "\t");
              Serial.print("Read  BSSID: " + CharArray_to_StringHEX((const char*)rtcData.bssid, sizeof(rtcData.bssid)) + "\t");
              Serial.print("Read  LastWiFiChannel: " + String(rtcData.LastWiFiChannel) + "\t");
              Serial.println("Read  Last Date: " + String(rtcData.lastUTCTime));
+            }
              return true;
         }
     }
@@ -169,10 +191,12 @@ bool RTC_write() {
     memcpy( rtcData.bssid, WiFi.BSSID(), 6 ); // Copy 6 bytes of BSSID (AP's MAC address)
     rtcData.crc32 = calculateCRC32( ((uint8_t*)&rtcData) + 4, sizeof( rtcData ) - 4 );
     //rtcData.lastUTCTime = curUnixTime();
+    if (config.DEBUG) {
     Serial.print("Write crc: " + String(rtcData.crc32) + "\t");
     Serial.print("Write BSSID: " + CharArray_to_StringHEX((const char*)rtcData.bssid, sizeof(rtcData.bssid)) + "\t");
     Serial.print("Write LastWiFiChannel: " + String(rtcData.LastWiFiChannel) + "\t");
     Serial.println("Write Last Date: " + String(rtcData.lastUTCTime));
+    }
 
 // Write rtcData back to RTC memory
     if (ESP.rtcUserMemoryWrite(0, (uint32_t*) &rtcData, sizeof(rtcData))) return true;
@@ -204,13 +228,34 @@ void GoingToSleep(byte Time_minutes = 0, unsigned long currUTime = 0 ) {
 // ESP32
 void GoingToSleep(byte Time_minutes = 0, unsigned long currUTime = 0 ) {
   // Store counter to the Preferences
-  preferences.putULong("UTCTime", currUTime);
-  keep_IP_address();
-  // Close the Preferences
-  preferences.end();
+    preferences.putULong("UTCTime", currUTime);
+    keep_IP_address();
 
-  if (Time_minutes > 0) esp_sleep_enable_timer_wakeup(Time_minutes * 60  * 1000000);  // time in minutes converted to microseconds
-  esp_deep_sleep_start();
+  // Close the Preferences
+    preferences.end();
+
+  // Configure Wake Up
+    if ( Ext1WakeUP>=0 && (Time_minutes == 0 || Time_minutes > 5) ) {
+        const uint64_t ext1_wakeup_pin_1_mask = 1ULL << Ext1WakeUP;      // -1 Warning during compilling
+        //const uint64_t ext1_wakeup_pin_1_mask = Ext1WakeUP;
+        esp_sleep_enable_ext1_wakeup(ext1_wakeup_pin_1_mask, ESP_EXT1_WAKEUP_ALL_LOW);
+//  Example using two PINs for external Wake UP 
+//      const int ext_wakeup_pin_1 = 2;
+//      const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
+//      const int ext_wakeup_pin_2 = 4;
+//      const uint64_t ext_wakeup_pin_2_mask = 1ULL << ext_wakeup_pin_2;
+//      printf("Enabling EXT1 wakeup on pins GPIO%d, GPIO%d\n", ext_wakeup_pin_1, ext_wakeup_pin_2);
+//      esp_sleep_enable_ext1_wakeup(ext_wakeup_pin_1_mask | ext_wakeup_pin_2_mask, ESP_EXT1_WAKEUP_ANY_HIGH);
+
+    }
+
+    if (config.HW_Module) {
+        if(config.DEBUG) Serial.println("Enabling ULP during deepsleep");
+        ulp_action(1000000);                                       // 10 second loop
+    }
+    
+    if (Time_minutes > 0) esp_sleep_enable_timer_wakeup(uint64_t(Time_minutes) * 60ULL  * 1000000ULL);  // time in minutes converted to microseconds
+    esp_deep_sleep_start();
 }
 
 
@@ -223,19 +268,30 @@ double ReadVoltage(byte pin){
 
 
 float getBattLevel() {                                      // return Battery level in Percentage [0 - 100%]
+#ifdef IP5306
+    float tempval;
+    float value = -2;
+    for(int i = 0; i < Number_of_measures; i++) {
+        tempval = float(getBatteryLevel());
+        if (tempval > value) value = tempval;
+        delay(100);
+    }
+    return value;
+#else
     float voltage = 0.0;                                    // Input Voltage [v]
     for(int i = 0; i < Number_of_measures; i++) {
         voltage += ReadVoltage(36);
-        delay(50);
-    };
+        delay(1);
+    }
     voltage = voltage / Number_of_measures;
-    voltage = (voltage * 2) + config.LDO_Corr;
-    Serial.println("Averaged and Corrected Voltage: " + String(voltage));
+    voltage = (voltage * 2) + config.LDO_Corr;              // "* 2" multiplier required when using a 50K + 50K Resistor divider between VCC and ADC. 
+    if (config.DEBUG) Serial.println("Averaged and Corrected Voltage: " + String(voltage));
     if (voltage > Batt_Max ) {
-        Serial.println("Voltage will be truncated to Batt_Max: " + String(Batt_Max));
+        if (config.DEBUG) Serial.println("Voltage will be truncated to Batt_Max: " + String(Batt_Max));
         voltage = Batt_Max;
     }
     return ((voltage - Batt_Min) / (Batt_Max - Batt_Min)) * 100.0;
+#endif
 }
 
 long getRSSI() {
@@ -251,7 +307,7 @@ long getRSSI() {
 
 
 void ESPRestart() {
-    Serial.println("Restarting ESP...");
+    if (config.DEBUG) Serial.println("Restarting ESP...");
     delay(100);
     esp_restart();
 }
@@ -279,6 +335,19 @@ String ESPWakeUpReason() {    // WAKEUP_REASON
   return RESET_REASON_to_string[rtc_get_reset_reason(0)];
 }
 
+String Flash_Size() {
+    return String(ESP.getFlashChipSize()/1048576) + "MB";   // value in bytes converted to MB (1024 * 1024)
+}
+
+uint32_t CPU_Clock() {
+    return getCpuFrequencyMhz();
+}
+
+void CPU_Boost(bool boost = true) {
+    if(boost) setCpuFrequencyMhz(240U);
+    else setCpuFrequencyMhz(80U);
+}
+
 /*
 void FormatConfig() {                                   // WARNING!! To be used only as last resource!!!
     Serial.println(ESP.eraseConfig());
@@ -287,7 +356,6 @@ void FormatConfig() {                                   // WARNING!! To be used 
     ESP.reset();
 }
 */
-
 
 void blink_LED(unsigned int slot, int bl_LED = LED_ESP, bool LED_OFF = config.LED) { // slot range 1 to 10 =>> 3000/300
     if (bl_LED>=0) {
@@ -304,47 +372,74 @@ void flash_LED(unsigned int n_flash = 1, int fl_LED = LED_ESP, bool LED_OFF = co
             digitalWrite(fl_LED, !LED_OFF);             // Turn LED on
             delay(LED_millis/3);
             digitalWrite(fl_LED, LED_OFF);              // Turn LED off
+            yield();
             delay(LED_millis);
         }
     }
 }
 
-void Buzz(unsigned int n_beeps = 1) {                   // number of beeps 1 to 6 =>> 3000/500
+void Buzz(unsigned int n_beeps = 1, unsigned long buzz_time = BUZZER_millis ) {
     if (BUZZER>=0) {
         for (size_t i = 0; i < n_beeps; i++) {
             digitalWrite(BUZZER, HIGH);                 // Turn Buzzer on
-            delay(BUZZER_millis/6);
+            delay(BUZZER_millis);
             digitalWrite(BUZZER, LOW);                  // Turn Buzzer off
-            delay(BUZZER_millis/6);
+            yield();
+            delay(BUZZER_millis);
         }
     }
 }
 
 
 void hw_setup() {
+  // Initiate Power Management CHIP      
+    #ifdef IP5306
+        ip5306_setup();
+        setPowerBoostKeepOn(true);
+        Serial.print("IP5306 --> Can control: "  + String(canControl()));
+        setCharge(true);
+        Serial.println("  -  Batt charging: "  + String(isCharging()) + "  ... and/or fully Charged: "  + String(isChargeFull()));
+    #endif
+
   // Output GPIOs
-      if (LED_ESP>=0) {
-          pinMode(LED_ESP, OUTPUT);
-          digitalWrite(LED_ESP, LOW);                   // initialize LED off
-      }
-      if (BUZZER>=0) {
-          pinMode(BUZZER, OUTPUT);
-          digitalWrite(BUZZER, LOW);                    // initialize BUZZER off
-      }
+    if (LED_ESP>=0) {
+        pinMode(LED_ESP, OUTPUT);
+        digitalWrite(LED_ESP, LOW);                     // initialize LED off
+    }
+    if (BUZZER>=0) {
+        pinMode(BUZZER, OUTPUT);
+        digitalWrite(BUZZER, LOW);                      // initialize BUZZER off
+    }
 
   // Input GPIOs
-      analogSetPinAttenuation(36,ADC_11db); // ADC_11db provides an attenuation so that IN/OUT = 1 / 3.6.
-                                            // An input of 3 volts is reduced to 0.833 volts before ADC measurement
-      adcAttachPin(36);                     // S_VP  -- GPIO36, ADC_PRE_AMP, ADC1_CH0, RTC_GPIO0
+    if (Def_Config>=0) {
+        pinMode(Def_Config, INPUT_PULLUP);
+        if (!digitalRead(Def_Config)) {
+            delay(5000);
+            if (!digitalRead(Def_Config)) {
+                flash_LED(5);
+                storage_reset();
+                RTC_reset();
+                ESPRestart();
+            }
+        }
+    }
 
+  // ADC setup
+    analogSetPinAttenuation(36,ADC_11db);   // ADC_11db provides an attenuation so that IN/OUT = 1 / 3.6.
+                                            // An input of 3 volts is reduced to 0.833 volts before ADC measurement
+    adcAttachPin(36);                       // S_VP  -- GPIO36, ADC_PRE_AMP, ADC1_CH0, RTC_GPIO0
+
+  // Disable BT (most of project won't use it) to save battery.
+  //  esp_bt_controller_disable();
 
   // Non.Volatile Memory
-      preferences.begin("my-app", false);
-      Serial.println("Stored UTCTime: " + String(preferences.getULong("UTCTime")));
-
+    preferences.begin("my-app", false);
+    Serial.println("Stored UTCTime: " + String(preferences.getULong("UTCTime")));
 }
 
 void hw_loop() {
   // LED handling usefull if you need to identify the unit from many
-      if (LED_ESP>=0) digitalWrite(LED_ESP, boolean(config.LED));
+    //if (LED_ESP>=0) digitalWrite(LED_ESP, boolean(config.LED));
+    yield();
 }
