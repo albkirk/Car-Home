@@ -7,6 +7,7 @@ void custo_hassio_disc(){
         config_entity("sensor","Battery", "Battery", carro[i].car_id, mqtt_pathCars[i]);
         config_entity("sensor","signal_strength", "RSSI", carro[i].car_id, mqtt_pathCars[i]);
     }
+    config_trigger("Button_1");
 }
 
 void custo_hassio_del(){
@@ -16,6 +17,7 @@ void custo_hassio_del(){
         delete_entity("sensor","Battery", "Battery", carro[i].car_id);
         delete_entity("sensor","signal_strength", "RSSI", carro[i].car_id);
     }
+    delete_trigger("Button_1");
 }
 
 void custo_hassio_attr(){

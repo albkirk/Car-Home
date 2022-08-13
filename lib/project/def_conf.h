@@ -6,16 +6,16 @@
 //#undef ESP32                                            // To make sure it is not used somewhere... 
 
 // -- HARWARE & SOFTWARE Version --
-#define BRANDName "AlBros_Team"                         // Hardware brand name
-#define MODELName "CarroemCasa"                         // Hardware model name
-#define SWVer "02.02"                                   // Major.Minor Software version (use String 01.00 - 99.99 format !)
+#define BRANDName           "AlBros_Team"               // Hardware brand name
+#define MODELName           "CarroemCasa"               // Hardware model name
+#define SWVer               "03.02"                     // Major.Minor Software version (use String 01.00 - 99.99 format !)
 
 // -- GPIO to Function Assignment --
 #define LED_ESP             22                          // 8266=2, ESP32=22, T-Call=13, -1 means NOT used!
 #define BUZZER              -1                          // (Active) Buzzer pin. Suggest to use pin 0. -1 means NOT used!
 #define Ext1WakeUP          -1                          // External Wake Up pin. (connected to GND, with Parallel Cap).  -1 means NOT used!
 #define Def_Config          -1                          // Return to Default configuration. -1 means NOT used! 
-#define BUT_A               -1                          // Button A INPUT pin (used in buttons.h)
+#define BUT_A                0                          // Button A INPUT pin (used in buttons.h)
 #define BUT_B               -1                          // Button B INPUT pin (used in buttons.h)
 #define BUT_C               -1                          // Button C INPUT pin (used in buttons.h)
 #define T_Left              -1                          // Touch button Left  pin. -1 means NOT used! 
@@ -28,6 +28,7 @@
 bool BattPowered =          false;                      // Is the device battery powered?
 #define Batt_L_Thrs         15                          // Battery level threshold [0%-100%] (before slepping forever).
 #define Using_ADC           true                        // will this device use the ADC? (if not, ES8266 will measure the internal voltage)
+//#define Default_ADC_PIN   34                          // IO pin to be used for the Battery ADC measurement. Default already is pin 36
 
 // -- SPI PIN Definition --
 #define MISO_PIN            -1                          // SPI MISO pin,TTGoTS->-1, -1 means NOT used!
@@ -72,13 +73,13 @@ void config_defaults() {
     Serial.println("Setting config Default values");
 
     strcpy(config.DeviceName, "CarroemCasa");             // Device Name
-    strcpy(config.Location, "Garagem");                  // Device Location
+    strcpy(config.Location, "Garagem");                   // Device Location
     strcpy(config.ClientID, "001001");                    // Client ID (used on MQTT)
     config.ONTime = 10;                                   // 0-255 seconds (Byte range)
     config.SLEEPTime = 0;                                 // 0-255 minutes (Byte range)
     config.DEEPSLEEP = false;                             // 0 - Disabled, 1 - Enabled
     config.LED = true;                                    // 0 - OFF, 1 - ON
-    config.TELNET = true;                                // 0 - Disabled, 1 - Enabled
+    config.TELNET = true;                                 // 0 - Disabled, 1 - Enabled
     config.OTA = true;                                    // 0 - Disabled, 1 - Enabled
     config.WEB = false;                                   // 0 - Disabled, 1 - Enabled
     config.Remote_Allow = true;                           // 0 - Not Allow, 1 - Allow remote operation
@@ -98,10 +99,10 @@ void config_defaults() {
     strcpy(config.MQTT_Server, "iothubna.hopto.org");     // MQTT Broker Server (URL or IP)
     config.MQTT_Port = 1883;                              // MQTT Broker TCP port
     config.MQTT_Secure = false;                           // 0 - Unsecure, 1 - TLS v1.2 Secured!!
-    strcpy(config.MQTT_User, "admin");                    // MQTT Broker username
-    strcpy(config.MQTT_Password, "admin");                // MQTT Broker password
+    strcpy(config.MQTT_User, "mqtt");                     // MQTT Broker username
+    strcpy(config.MQTT_Password, "mqttpass!");            // MQTT Broker password
     strcpy(config.UPDATE_Server, "iothubna.hopto.org");   // UPDATE Server (URL or IP)
-    config.UPDATE_Port = 1880;                            // UPDATE Server TCP port
+    config.UPDATE_Port = 8123;                            // UPDATE Server TCP port
     strcpy(config.UPDATE_User, "user");                   // UPDATE Server username
     strcpy(config.UPDATE_Password, "1q2w3e4r");           // UPDATE Server password
     strcpy(config.SIMCardPIN, "1234");                    // SIM card PIN
@@ -111,8 +112,8 @@ void config_defaults() {
     strcpy(config.WEB_User, "admin");                     // WEB Server username
     strcpy(config.WEB_Password, "admin");                 // WEB Server password
     config.Temp_Corr = 0.0;                               // Sensor Temperature Correction Factor, typically due to electronic self heat.
-    config.LDO_Corr = 0.25;                                // Battery Voltage [volt] corrective Factor due to LDO/Diode voltage drop
-    config.HW_Module = true;                              // Is HW module plugged (ex.: GPS hardware)used / connected?
+    config.LDO_Corr = 0.25;                               // Battery Voltage [volt] corrective Factor due to LDO/Diode voltage drop
+    config.HW_Module = false;                             // Is HW module plugged (ex.: GPS hardware)used / connected?
     config.HASSIO_CFG = false;                            // Is HASSIO configured? If not, it should perform the discovery.
     config.DEBUG = true;                                  // 0 - No serial msgs, 1 - Debug msg sent to serial interface
     config.SW_Upgraded = false;                           // Is SW Upgrade completed? If not, clean the house and Update status.

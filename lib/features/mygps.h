@@ -10,9 +10,9 @@
 #define GPS_cycle 1100                              // Setting 1000 milisecond by default -- it Depends on what's configured on GPS module!
 #define GPS_Update 10                               // Value (in Seconds) to update GPS Data variables
 #define GPSBaud 9600                                // GPS Serial baudrate
-uint32_t GPS_Age, GPS_Sat, GPS_Fix_Time=0;
-double GPS_Lat, GPS_Lng, GPS_Alt, GPS_Course, GPS_Speed, GPS_HDOP; // GPS data: Satellites, Latitude, Longitude, Altitude, Course, Speed and HDOP
-bool GPS_Valid = false;
+static uint32_t GPS_Age, GPS_Sat, GPS_Fix_Time=0;
+static double GPS_Lat, GPS_Lng, GPS_Alt, GPS_Course, GPS_Speed, GPS_HDOP; // GPS data: Satellites, Latitude, Longitude, Altitude, Course, Speed and HDOP
+static bool GPS_Valid = false;
 
 // The TinyGPS++ object
 TinyGPSPlus gps;
@@ -36,8 +36,8 @@ static void gps_update(unsigned long ms = GPS_cycle) {
   unsigned long start = millis();
   do 
   {
-    while (ss.available())
-      gps.encode(ss.read());
+    while (ss.available()) gps.encode(ss.read());
+    yield();
   } while (millis() - start < ms);
 
   if(gps.location.isValid()) {
@@ -46,6 +46,7 @@ static void gps_update(unsigned long ms = GPS_cycle) {
         GPS_Sat = gps.satellites.value();
         GPS_Lat = gps.location.lat();
         GPS_Lng = gps.location.lng();
+        yield();
         GPS_Alt = gps.altitude.meters();
         GPS_Course = gps.course.deg();
         GPS_Speed = gps.speed.kmph();

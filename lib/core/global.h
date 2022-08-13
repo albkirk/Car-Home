@@ -36,3 +36,7 @@ void status_report() {
     }
     else mqtt_publish(mqtt_pathtele, "Status", "Mains");
 }
+
+void global_setup() {
+    SLEEPTime = config.SLEEPTime;          // Variable to allow temporary change the sleeptime (ex.: = 0)
+}

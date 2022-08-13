@@ -4,10 +4,13 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 #include <sstream>
+#include <buttons.h>
 
-
-int scanTime = 5; //In seconds
-long TimeOUT = 25000;  // [ms] time to consider not having the BT beacon present 
+// Variables used for multi-task
+TaskHandle_t task_BLEScan;
+int scanTime = 5;                               // In seconds
+unsigned long Last_Scan_task = 0;               // Last time BLE Scan task was triggered
+unsigned long TimeOUT = 25000;                           // [ms] time to consider not having the BT beacon present 
 std::stringstream ss;
 BLEScan* pBLEScan;
 
@@ -20,7 +23,7 @@ struct car_strut
      String BT;
      bool na_garagem;
      bool last_na_garagem;
-     long last_time_na_gar;
+     unsigned long last_time_na_gar;
      uint8_t batt;
      int bt_rssi;
  };
@@ -28,7 +31,7 @@ struct car_strut
 #define carro_max 2
 car_strut carro[] = {
                         {"Golf",   "f8:06:4d:f7:2e:30", false, true, 0, 0, 0},
-                        {"Megane", "f8:06:4d:f7:2e:31", false, true, 0, 0, 0}
+                        {"Megane", "c3:54:9d:96:3a:8b", false, true, 0, 0, 0}
                       };
 
 static const String mqtt_pathCars[] = { "001001/" + String(ChipID) + "/" + carro[0].car_id + "/inform/",
@@ -78,17 +81,17 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
       for (size_t i = 0; i < carro_max; i++)
       {
           if (String(advertisedDevice.getAddress().toString().c_str()) == carro[i].BT) { 
-              telnet_println("Car found!");
               carro[i].na_garagem = true;
               carro[i].last_time_na_gar = millis();
               char *pHex = BLEUtils::buildHexData(nullptr, (uint8_t*)advertisedDevice.getManufacturerData().data(), advertisedDevice.getManufacturerData().length());
               carro[i].batt = uint8_t((pHex[26] - 48) * 10 + (pHex[27] - 48));  // 48 => char "0"
               free(pHex);
 
-              char valrssi[4];
+              char valrssi[5];
 		          snprintf(valrssi, sizeof(valrssi), "%d", advertisedDevice.getRSSI());
               carro[i].bt_rssi = (int)atoi(valrssi);
 
+              telnet_println( String(carro[i].car_id) + " found!  -   RSSI: " + String(carro[i].bt_rssi) + "  -  Batt: " + String(carro[i].batt) + "%" );
               //Serial.println(carro[i].BT + " " + carro[i].car_id + " " + String(carro[i].batt) + " " + String(carro[i].bt_rssi) + " " + String(carro[i].na_garagem) + " " + String(carro[i].last_time_na_gar));
 
           }
@@ -99,45 +102,10 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 };
 
 
-
-
-
-// **** Project code functions here ...
-void project_hw() {
- // Output GPIOs
-    pinMode(4, OUTPUT);
-    digitalWrite(4, LOW);  // initialize LCD off
-
-
- // Input GPIOs
-
-
-}
-
-
-void update_presence() {
-    for (size_t i = 0; i < carro_max; i++) {
-        mqtt_publish(mqtt_pathCars[i], "Presence", String(carro[i].na_garagem));
-        if (carro[i].na_garagem == true) {
-            mqtt_publish(mqtt_pathCars[i], "Battery", String(carro[i].batt));
-            mqtt_publish(mqtt_pathCars[i], "RSSI", String(carro[i].bt_rssi));
-        }
-    }
-}
-
-void project_setup() {
-  // Start Ambient devices
-      BLEDevice::init("");
-      pBLEScan = BLEDevice::getScan(); //create new scan
-      pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
-      pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
-      pBLEScan->setInterval(0x50);
-      pBLEScan->setWindow(0x30);  // less or equal setInterval value
-}
-
-void project_loop() {
-  // Ambient handing
-      BLEScanResults foundDevices = pBLEScan->start(scanTime);
+void fn_task_BLEScan(void *parameters){
+    uint8_t buf_idx = 0;
+    //telnet_println("fn_task_BLEScan running on core " + String(xPortGetCoreID()) + "  Last_Scan_task: " + String(Last_Scan_task));
+    BLEScanResults foundDevices = pBLEScan->start(scanTime);
       //int count = foundDevices.getCount();
       //for (int i = 0; i < count; i++) {
       //    BLEAdvertisedDevice d = foundDevices.getDevice(i);
@@ -158,21 +126,85 @@ void project_loop() {
       //}
       //Serial.println(ss.str().c_str());
 
-      telnet_println("Scan done!");
-      pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
-      for (size_t i = 0; i < carro_max; i++)
-      {
-        //Serial.println(carro[i].BT + " " + carro[i].car_id + " " + String(carro[i].batt) + " " + String(carro[i].bt_rssi) + " " + String(carro[i].na_garagem) + " " + String(carro[i].last_time_na_gar));
-        if ((millis() - carro[i].last_time_na_gar) > TimeOUT) carro[i].na_garagem = false;
-        if(carro[i].last_na_garagem != carro[i].na_garagem) {
-          mqtt_publish(mqtt_pathCars[i], "Presence", String(carro[i].na_garagem));
-          if (carro[i].na_garagem == true) {
-              mqtt_publish(mqtt_pathCars[i], "Battery", String(carro[i].batt));
-              mqtt_publish(mqtt_pathCars[i], "RSSI", String(carro[i].bt_rssi));
-          };
-          carro[i].last_na_garagem = carro[i].na_garagem;
+    telnet_println("Scan done --");
+    pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
+    vTaskDelete(NULL);
+}
+
+
+// **** Project code functions here ...
+void project_hw() {
+ // Output GPIOs
+    pinMode(4, OUTPUT);
+    digitalWrite(4, LOW);  // initialize LCD off
+
+
+ // Input GPIOs
+
+
+}
+
+void button_loop() {
+    if (A_COUNT == 1 && (millis() - Last_A > Butt_Interval)) {
+        mqtt_publish(mqtt_pathtele, "Button_1", String(A_COUNT));
+        //telnet_println("Button A pressed ", true);
+        flash_LED(A_COUNT);
+        A_COUNT = 0;
+    }
+    if (A_COUNT ==2 && (millis() - Last_A > Butt_Interval)) {
+        mqtt_publish(mqtt_pathtele, "Button_1", String(A_COUNT));
+        //telnet_println("Button A pressed " + String(A_COUNT) + "times!", true);
+        flash_LED(A_COUNT);
+        A_COUNT = 0;
+    }
+    if (A_COUNT == 5 && (millis() - Last_A > Butt_Interval)) {
+        mqtt_publish(mqtt_pathtele, "Button_1", String(A_COUNT));
+        //telnet_println("Button A pressed " + String(A_COUNT) + "times!", true);
+        flash_LED(A_COUNT);
+        A_COUNT = 0;
+        //ESPRestart();
+    }
+}
+
+void publish_carro_presence() {
+    for (size_t i = 0; i < carro_max; i++) {
+        mqtt_publish(mqtt_pathCars[i], "Presence", String(carro[i].na_garagem));
+        if (carro[i].na_garagem == true) {
+            mqtt_publish(mqtt_pathCars[i], "Battery", String(carro[i].batt));
+            mqtt_publish(mqtt_pathCars[i], "RSSI", String(carro[i].bt_rssi));
         }
-      } 
-      
-      delay(200);
+    }
+}
+
+void project_setup() {
+  // Start Ambient devices
+      buttons_setup();
+      BLEDevice::init("");
+      pBLEScan = BLEDevice::getScan(); //create new scan
+      pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+      pBLEScan->setActiveScan(true); //active scan uses more power, but get results faster
+      pBLEScan->setInterval(0x50);
+      pBLEScan->setWindow(0x30);  // less or equal setInterval value
+}
+
+void project_loop() {
+  // Ambient handing
+    button_loop();
+    if (Last_Scan_task > millis()) Last_Scan_task = 0;
+    if( (millis() - (Last_Scan_task))  >  ulong(scanTime * 1100) ) {       // Convert sec to millis and add 10%
+        for (size_t i = 0; i < carro_max; i++) {
+            //Serial.println(carro[i].BT + " " + carro[i].car_id + " " + String(carro[i].batt) + " " + String(carro[i].bt_rssi) + " " + String(carro[i].na_garagem) + " " + String(carro[i].last_time_na_gar));
+            if ((millis() - carro[i].last_time_na_gar) > TimeOUT) carro[i].na_garagem = false;
+            if(carro[i].last_na_garagem != carro[i].na_garagem) {
+                mqtt_publish(mqtt_pathCars[i], "Presence", String(carro[i].na_garagem));
+                if (carro[i].na_garagem == true) {
+                    mqtt_publish(mqtt_pathCars[i], "Battery", String(carro[i].batt));
+                    mqtt_publish(mqtt_pathCars[i], "RSSI", String(carro[i].bt_rssi));
+                };
+                carro[i].last_na_garagem = carro[i].na_garagem;
+            }
+        };
+        Last_Scan_task = millis();
+        xTaskCreate(fn_task_BLEScan, "task_BLEScan", 8192, (void *)NULL, 0, &task_BLEScan);
+    }      
 }

@@ -32,15 +32,15 @@ void on_message(const char* topic, byte* payload, unsigned int msg_length) {
     String command = String(topic);
     command.replace(mqtt_pathsubs, "");
     String cmd_value = String((char*)msg);
-    telnet_print("Requested Command: " + command);
-    telnet_println("\tCommand Value: " + cmd_value);
+    telnet_print("Requested Command: " + command, true);
+    telnet_println(" Command Value: " + cmd_value, true);
 
     // System Configuration 
     if ( command == "DeviceName") {hassio_delete(); strcpy(config.DeviceName, cmd_value.c_str()); hassio_discovery(); hassio_attributes(); storage_write(); }
     if ( command == "Location") {strcpy(config.Location, cmd_value.c_str()); config_backup(); hassio_attributes(); storage_write(); }
     if ( command == "ClientID") {hassio_delete(); strcpy(config.ClientID, cmd_value.c_str()); hassio_discovery(); hassio_attributes(); storage_write(); }
-    if ( command == "DEEPSLEEP") { config.DEEPSLEEP = bool(cmd_value.toInt()); storage_write(); }
-    if ( command == "SLEEPTime" && cmd_value.toInt() >= 0) { config.SLEEPTime = byte(cmd_value.toInt()); SLEEPTime = config.SLEEPTime; storage_write(); mqtt_publish(mqtt_pathcomd, "SLEEPTime", "", true); }
+    if ( command == "DEEPSLEEP" && cmd_value !="") { config.DEEPSLEEP = bool(cmd_value.toInt()); storage_write(); mqtt_publish(mqtt_pathcomd, "DEEPSLEEP", "", true);}
+    if ( command == "SLEEPTime" && cmd_value !="" && cmd_value.toInt() >= 0) { config.SLEEPTime = byte(cmd_value.toInt()); SLEEPTime = config.SLEEPTime; storage_write(); mqtt_publish(mqtt_pathcomd, "SLEEPTime", "", true); }
     if ( command == "ONTime") { config.ONTime = byte(cmd_value.toInt());storage_write(); }
     if ( command == "ExtendONTime") if (bool(cmd_value.toInt()) == true) Extend_time = 60;
     if ( command == "LED") {config.LED = bool(cmd_value.toInt()); mqtt_publish(mqtt_pathtele, "LED", String(config.LED));}
@@ -51,8 +51,8 @@ void on_message(const char* topic, byte* payload, unsigned int msg_length) {
     if ( command == "WEB") { config.WEB = bool(cmd_value.toInt()); storage_write(); web_setup(); }
 #endif
     if ( command == "DHCP") { config.DHCP = bool(cmd_value.toInt()); storage_write(); wifi_connect(); }
-    if ( command == "STAMode") { config.STAMode = bool(cmd_value.toInt()); storage_write(); wifi_connect(); }
-    if ( command == "APMode") { config.APMode = bool(cmd_value.toInt()); storage_write(); wifi_connect(); }
+    if ( command == "STAMode") { config.STAMode = bool(cmd_value.toInt()); storage_write(); wifi_setup(); }
+    if ( command == "APMode") { config.APMode = bool(cmd_value.toInt()); storage_write(); wifi_setup(); }
     if ( command == "SSID") strcpy(config.SSID, cmd_value.c_str());
     if ( command == "WiFiKey") strcpy(config.WiFiKey, cmd_value.c_str());
     if ( command == "NTPServerName") strcpy(config.NTPServerName, cmd_value.c_str());
@@ -70,14 +70,20 @@ void on_message(const char* topic, byte* payload, unsigned int msg_length) {
     if ( command == "isDayLightSaving") config.isDayLightSaving = bool(cmd_value.toInt());
     if ( command == "DEBUG") { config.DEBUG = bool(cmd_value.toInt()); telnet_println("DEBUG = " + String(config.DEBUG)); storage_write(); }
     if ( command == "Store") if (bool(cmd_value.toInt()) == true) storage_write();
-    if ( command == "Boot")  if (bool(cmd_value.toInt()) == true) {mqtt_publish(mqtt_pathcomd, "Boot", "", true); mqtt_restart();}
+    if ( command == "Reboot")  if (bool(cmd_value.toInt()) == true) {mqtt_publish(mqtt_pathcomd, "Boot", "", true); mqtt_restart();}
     if ( command == "Reset") if (bool(cmd_value.toInt()) == true) {mqtt_publish(mqtt_pathcomd, "Reset", "", true); hassio_delete(); mqtt_reset();}
+    if ( command == "Format") if (bool(cmd_value.toInt()) == true) FormatConfig();
+    if ( command == "Version") {mqtt_publish(mqtt_pathtele, "Version", String(SWVer)); telnet_println("Version: " + String(SWVer));}
     if ( command == "HASSIO") if (bool(cmd_value.toInt()) == true) {
             mqtt_publish(mqtt_pathcomd, "HASSIO", "", true);
             hassio_delete();
             hassio_discovery();
             delay(10);
             state_update();
+        }
+    if ( command == "HASSIODEL") if (bool(cmd_value.toInt()) == true) {
+            mqtt_publish(mqtt_pathcomd, "HASSIO", "", true);
+            hassio_delete();
         }
     if ( command == "Switch_Def") { 
             config.SWITCH_Default = bool(cmd_value.toInt());
@@ -112,13 +118,13 @@ void on_message(const char* topic, byte* payload, unsigned int msg_length) {
 
     custom_mqtt(command, cmd_value);
 
-    if (config.DEBUG) {
-        storage_print();
-        if (BattPowered) { Serial.printf("Power: BATT  -  Level: %.0f\t", getBattLevel()); }
-        else { Serial.printf("Power: MAINS\t"); }
-        Serial.print("Current Date/Time: " + curDateTime());
-        Serial.printf("\t NTP Sync: %d\n", NTP_Sync);
-    }
+//    if (config.DEBUG) {
+//        storage_print();
+//        if (BattPowered) { Serial.printf("Power: BATT  -  Level: %.0f\t", getBattLevel()); }
+//        else { Serial.printf("Power: MAINS\t"); }
+//        Serial.print("Current Date/Time: " + curDateTime());
+//        Serial.printf("\t NTP Sync: %d\n", NTP_Sync);
+//    }
 }
 
 
@@ -169,7 +175,7 @@ void mqtt_loop() {
     if (!MQTTclient.loop()) {
         if ( millis() - MQTT_LastTime > (MQTT_Retry * 1000)) {
             MQTT_errors ++;
-            Serial.println( "in loop function MQTT ERROR! #: " + String(MQTT_errors) + "  ==> " + MQTT_state_string(MQTTclient.state()) );
+            telnet_println( "in loop function MQTT ERROR! #: " + String(MQTT_errors) + "  ==> " + MQTT_state_string(MQTTclient.state()) );
             MQTT_LastTime = millis();
             mqtt_connect();
             if( MQTT_state == MQTT_CONNECTED) state_update();
@@ -195,7 +201,7 @@ void parse_command_msg(String bufferRead) {
                 char * pch;
                 pch = strtok (msg_array," ,-=\"\t\r\n");
                 String command = String((char *)pch);
-                pch = strtok (NULL, " ,-=\"\t\r\n");
+                pch = strtok (NULL, " ,=\"\t\r\n");
                 String value = String((char *)pch);
                 //Serial.print(command); Serial.print("\t<-->\t"); Serial.println(value);
 
@@ -205,6 +211,7 @@ void parse_command_msg(String bufferRead) {
 
                 on_message(command.c_str(), B_value, value.length()+1);
             }
+            else telnet_println("",true);
         }
         TELNET_Timer = millis();                // Update timer to extend telnet inactivity timeout
 }
@@ -212,41 +219,56 @@ void parse_command_msg(String bufferRead) {
 
 // TELNET commands to run on loop function.
 void telnet_loop() {
-		blink_LED(3);
-	   //check if there are any new clients
-    if (telnetClient.connected()) {
-        if ((millis() - TELNET_Timer) > MAX_TIME_INACTIVE) {
-            telnetClient.println("Closing Telnet session by inactivity");
-            telnetClient.stop();
-        }
-    }
-
-    if (telnetServer.hasClient()) {
-        if (telnetClient && telnetClient.connected()) {
-            // Verify if the IP is same than actual conection
-            newClient = telnetServer.available();
-            if (newClient.remoteIP() == telnetClient.remoteIP() ) {
-                // Reconnect
+	blink_LED(3);
+    if (WIFI_state != WL_CONNECTED) yield();
+    else {
+	    //check if there are any new clients
+        if (telnetClient.connected()) {
+            if ((millis() - TELNET_Timer) > MAX_TIME_INACTIVE) {
+                telnet_println("Closing Telnet session by inactivity", true);
                 telnetClient.stop();
-                telnetClient = newClient;
+            }
+        }
+
+        if (telnetServer.hasClient()) {
+            if (telnetClient && telnetClient.connected()) {
+                // Verify if the IP is same than actual conection
+                newClient = telnetServer.available();
+                if (newClient.remoteIP() == telnetClient.remoteIP() ) {
+                    // Reconnect
+                    telnetClient.stop();
+                    telnetClient = newClient;
+                }
+                else {
+                    // Disconnect (not allow more than one connection)
+                    newClient.stop();
+                    return;
+                }
             }
             else {
-                // Disconnect (not allow more than one connection)
-                newClient.stop();
-                return;
+                // New TCP client
+                telnetClient = telnetServer.available();
+                telnetClient.setNoDelay(true);      // Faster... ?
+                telnetClient.flush();               // clear input buffer, else you get strange characters
+                TELNET_Timer = millis();            // initiate timer for inactivity
+                if (config.DEBUG) Serial.println("New telnet client!");
             }
         }
-        else {
-            // New TCP client
-            telnetClient = telnetServer.available();
-            telnetClient.setNoDelay(true);      // Faster... ?
-            telnetClient.flush();               // clear input buffer, else you get strange characters
-            TELNET_Timer = millis();            // initiate timer for inactivity
-            if (config.DEBUG) Serial.println("New telnet client!");
+
+        if (telnetClient.available()) {
+            parse_command_msg(telnetClient.readStringUntil(char(10)));
+            console_prompt();
         }
+        yield();
     }
+}
 
-    if (telnetClient.available()) parse_command_msg(telnetClient.readStringUntil('\n'));
 
-    yield();
+// Serial loop function to parse anny command written on the serial interface
+void serial_loop() {
+        if (Serial.available()) {
+            parse_command_msg(Serial.readStringUntil(char(10)));
+            console_prompt();
+        }
+        yield();
 }

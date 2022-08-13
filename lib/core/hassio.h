@@ -51,7 +51,10 @@ void send_status_attributes(String param) {
     attributes_doc.clear();
     attributes_doc["CPUClock"]          = CPU_Clock();                          // CPU Clock
     attributes_doc["Boot"]              = ESPWakeUpReason();                    // Boot Reason
-    attributes_doc["IP"]                = WiFi.localIP().toString();            // Device IP address
+    if (WIFI_state == WL_CONNECTED) attributes_doc["IP"] = WiFi.localIP().toString(); // WiFi IP address
+    #ifdef Modem_WEB_TELNET
+        if (Celular_Connected) attributes_doc["IP"] = ModemIP;                  // Modem IP address
+    #endif
     attributes_doc["Location"]          = config.Location;                      // Device Location
     attributes_doc["DEEPSleep"]         = config.DEEPSLEEP;                     // DEEPSleep status
     attributes_doc["SLEEPTime"]         = config.SLEEPTime;                     // DEEPSleep time
