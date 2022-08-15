@@ -8,7 +8,7 @@
 // -- HARWARE & SOFTWARE Version --
 #define BRANDName           "AlBros_Team"               // Hardware brand name
 #define MODELName           "CarroemCasa"               // Hardware model name
-#define SWVer               "03.02"                     // Major.Minor Software version (use String 01.00 - 99.99 format !)
+#define SWVer               "03.10"                     // Major.Minor Software version (use String 01.00 - 99.99 format !)
 
 // -- GPIO to Function Assignment --
 #define LED_ESP             22                          // 8266=2, ESP32=22, T-Call=13, -1 means NOT used!
@@ -78,7 +78,7 @@ void config_defaults() {
     config.ONTime = 10;                                   // 0-255 seconds (Byte range)
     config.SLEEPTime = 0;                                 // 0-255 minutes (Byte range)
     config.DEEPSLEEP = false;                             // 0 - Disabled, 1 - Enabled
-    config.LED = true;                                    // 0 - OFF, 1 - ON
+    config.LED = false;                                   // 0 - OFF, 1 - ON
     config.TELNET = true;                                 // 0 - Disabled, 1 - Enabled
     config.OTA = true;                                    // 0 - Disabled, 1 - Enabled
     config.WEB = false;                                   // 0 - Disabled, 1 - Enabled

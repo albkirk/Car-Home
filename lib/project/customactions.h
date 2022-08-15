@@ -66,7 +66,7 @@ void custom_mqtt(String command, String cmd_value) {
 void custom_update(){
     yield();
     //mqtt_dump_data(mqtt_pathtele, "Telemetry");
-    publish_carro_presence();
+    //publish_carro_presence();
 }
 
 
