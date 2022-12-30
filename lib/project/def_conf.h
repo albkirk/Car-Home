@@ -8,7 +8,7 @@
 // -- HARWARE & SOFTWARE Version --
 #define BRANDName           "AlBros_Team"               // Hardware brand name
 #define MODELName           "CarroemCasa"               // Hardware model name
-#define SWVer               "03.10"                     // Major.Minor Software version (use String 01.00 - 99.99 format !)
+#define SWVer               "03.11"                     // Major.Minor Software version (use String 01.00 - 99.99 format !)
 
 // -- GPIO to Function Assignment --
 #define LED_ESP             22                          // 8266=2, ESP32=22, T-Call=13, -1 means NOT used!
