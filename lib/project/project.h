@@ -28,8 +28,8 @@ struct car_strut
  
 #define carro_max 2
 car_strut carro[] = {
-                        {"Golf",   "f8:06:4d:f7:2e:30", false, true, 0, 0, 0},
-                        {"Megane", "c3:54:9d:96:3a:8b", false, true, 0, 0, 0}
+                        {"Golf",   "f8:06:4d:f7:2e:30", false, false, 0, 0, 0},
+                        {"Megane", "c3:54:9d:96:3a:8b", false, false, 0, 0, 0}
                       };
 
 static const String mqtt_pathCars[] = { "001001/" + String(ChipID) + "/" + carro[0].car_id + "/inform/",
