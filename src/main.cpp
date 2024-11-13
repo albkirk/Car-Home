@@ -28,13 +28,14 @@
 #include <console.h>
 #include <ntp.h>
 #include <mqtt.h>
-#include <ota.h>
-#include <project.h>
 #include <global.h>
+#include <peripherals.h>
+#include <ota.h>
 #include <hassio.h>
 #ifndef ESP8285
     #include <web.h>
 #endif
+#include <project.h>
 #include <actions.h>                        // Added later because functions from project are called here.
 
 
@@ -58,8 +59,8 @@ void setup() {
   // Start ESP specific features, such as: Serial Number, ESP_LED, internal ADC, ...
       hw_setup();
 
-  //  Project HW initialization, such as: GPIO config, Sensors, Actuators, ...  
-      project_hw();
+  //  Project peripherals initialization, such as: GPIO config, Sensors, Actuators, ...  
+      peripherals_setup();
 
   // Start WiFi service (Station or/and as Access Point)
       wifi_setup();

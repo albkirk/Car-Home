@@ -4,8 +4,8 @@
  https://github.com/esp8266/Arduino/issues/1539
 */
 #include <EEPROM.h>
-#define EEPROMZize 4096                     // 4KB
-#define Mem_Start_Pos 1024                  // Memory starting point Position for the space to write/read data
+#define EEPROMZize 2048                     // Lowered 4K to 2KB as it was failing on FireBeetle 
+#define Mem_Start_Pos 512                   // Memory starting point Position for the space to write/read data
 
 #include <ArduinoJson.h>
 
@@ -141,7 +141,7 @@ struct __attribute__((__packed__)) strConfig {
 //
 void storage_print() {
     Serial.printf("Config Size: [%d bytes]\r\n", sizeof(config));
-    if (sizeof(config) + 16 > Mem_Start_Pos) Serial.println ("WARNING: Memory zones overlapinng!!");
+    if (sizeof(config) + 16 > (EEPROMZize - Mem_Start_Pos)) Serial.println ("WARNING: Memory zones overlapinng!!");
     Serial.printf("Device Name: %s and Location: %s\r\n", config.DeviceName, config.Location);
     Serial.printf("ON time[sec]: %d  -  SLEEP Time[min]: %d -  DEEPSLEEP enabled: %d\r\n", config.ONTime, config.SLEEPTime, config.DEEPSLEEP);
     Serial.printf("LED enabled: %d   -  TELNET enabled: %d  -  OTA enabled: %d  -  WEB enabled: %d\r\n", config.LED, config.TELNET, config.OTA, config.WEB);

@@ -34,7 +34,7 @@
         ArduinoOTA.onEnd([]() {
             flash_LED(15);      // Flash board led 15 times at end
             telnet_println("\nOTA END with success!");
-            mqtt_restart();
+            global_restart();
         });
         ArduinoOTA.onError([](ota_error_t error) {
             Serial.printf("Error[%u]: ", error);

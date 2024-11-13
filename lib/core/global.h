@@ -38,13 +38,15 @@ void status_report() {
 }
 
 void global_restart() {
-    mqtt_restart();
+    mqtt_publish(mqtt_pathtele, "Status", "Restarting");
+    mqtt_disconnect();
     if (config.TELNET) telnet_stop();
     ESPRestart();
 }
 
 void global_reset() {
-    mqtt_reset();
+    mqtt_publish(mqtt_pathtele, "Status", "Reseting");
+    mqtt_disconnect();
     if (config.TELNET) telnet_stop();
     storage_reset();
     RTC_reset();

@@ -82,7 +82,7 @@ void send_switch_attributes(String param) {
 }
 
 // HASSIO Configuration registration
-void config_entity(String component = "sensor", String device_class = "Battery", String param = "", String device = "", String mqtt_path_stat = mqtt_pathtele, bool RetainCmd = false) {
+void config_entity(String component = "sensor", String device_class = "Battery", String param = "", String device = "", String mqtt_path_stat = mqtt_pathtele) {
     //"sensor" have well defined classes: battery, humidity, illuminance, signal_strength, temperature, power, pressure, etc
     if(param == "") param = device_class;       // use the "device_class" as "param" value
 
@@ -184,7 +184,7 @@ void config_entity(String component = "sensor", String device_class = "Battery",
         }
 
         if(device_class == "Temperature") {
-            discovery_doc["unit_of_meas"] = "ºC";
+            discovery_doc["unit_of_meas"] = "°C";   // note the usage of char "°" and not "º" 
             discovery_doc["val_tpl"]      = "{{value | float }}";
         }
 

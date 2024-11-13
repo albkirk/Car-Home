@@ -8,14 +8,14 @@
 // -- HARWARE & SOFTWARE Version --
 #define BRANDName           "AlBros_Team"               // Hardware brand name
 #define MODELName           "CarroemCasa"               // Hardware model name
-#define SWVer               "03.11"                     // Major.Minor Software version (use String 01.00 - 99.99 format !)
+#define SWVer               "03.12"                     // Major.Minor Software version (use String 01.00 - 99.99 format !)
 
 // -- GPIO to Function Assignment --
-#define LED_ESP             22                          // 8266=2, ESP32=22, T-Call=13, -1 means NOT used!
+#define LED_ESP             22                          // 8266=2, TTGo T7=22, T-Call=13, -1 means NOT used!
 #define BUZZER              -1                          // (Active) Buzzer pin. Suggest to use pin 0. -1 means NOT used!
 #define Ext1WakeUP          -1                          // External Wake Up pin. (connected to GND, with Parallel Cap).  -1 means NOT used!
 #define Def_Config          -1                          // Return to Default configuration. -1 means NOT used! 
-#define BUT_A                0                          // Button A INPUT pin (used in buttons.h)
+#define BUT_A                0                          // Button A INPUT pin (used in buttons.h) TTGo T7 = 0
 #define BUT_B               -1                          // Button B INPUT pin (used in buttons.h)
 #define BUT_C               -1                          // Button C INPUT pin (used in buttons.h)
 #define T_Left              -1                          // Touch button Left  pin. -1 means NOT used! 
@@ -47,8 +47,8 @@ bool BattPowered =          false;                      // Is the device battery
 // -- MODEM Definition --
 // Module selection
 //#define TINY_GSM_MODEM_SIM7020                        // SIMCOM 7020 module. 
-#define TINY_GSM_MODEM_SIM800                           // SIMCOM 800 module. TTGo T-Call module uses this chip
-//#define IP5306                                          // Power Management chip. TTGo T-Call module uses this.
+//#define TINY_GSM_MODEM_SIM800                         // SIMCOM 800 module. TTGo T-Call module uses this chip
+//#define IP5306                                        // Power Management chip. TTGo T-Call module uses this.
 // Modem PINs
 #define MODEM_PWKEY         -1                          // T-Call=4, SIM7020E=14, -1 means NOT used!
 #define MODEM_RST           -1                          // T-Call=5, -1 means NOT used!
@@ -62,11 +62,10 @@ bool BattPowered =          false;                      // Is the device battery
 // -- DISPLAY Definition --
 //#define TFT                                           // TFT Display based on Driver ST7735 used on TTGo TS
 //#define EPAPER                                        // E-Paper Display model GDEH0213B73 used on TTGo T5 v2.3
-
-#define BACKLIGHT           -1                          // Display backlight pin,TTGoTS->-1, -1 means NOT used!
-#define RST_PIN             -1                          // Display RST pin,      TTGoTS-> 9, -1 means NOT used!
-#define DC_PIN              -1                          // Display DC pin,       TTGoTS->17, -1 means NOT used!
-#define BUSY_PIN            -1                          // Display BUSY pin,     TTGoTS->-1, -1 means NOT used!
+#define BACKLIGHT           -1                          // Display backlight, TTGoTS->-1, T5->-1, -1 means NOT used!
+#define RST_PIN             -1                          // Display RST pin,   TTGoTS-> 9, T5->16, -1 means NOT used!
+#define DC_PIN              -1                          // Display DC pin,    TTGoTS->17, T5->17, -1 means NOT used!
+#define BUSY_PIN            -1                          // Display BUSY pin,  TTGoTS->-1, T5->4   -1 means NOT used!
 
 
 void config_defaults() {

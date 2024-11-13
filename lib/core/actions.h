@@ -44,8 +44,8 @@ void on_message(const char* topic, byte* payload, unsigned int msg_length) {
     if ( command == "ONTime") { config.ONTime = byte(cmd_value.toInt());storage_write(); }
     if ( command == "ExtendONTime") if (bool(cmd_value.toInt()) == true) Extend_time = 60;
     if ( command == "LED") {config.LED = bool(cmd_value.toInt()); mqtt_publish(mqtt_pathtele, "LED", String(config.LED));}
-    if ( command == "TELNET") { config.TELNET = bool(cmd_value.toInt()); storage_write(); telnet_setup(); }
-    if ( command == "OTA") { config.OTA = bool(cmd_value.toInt()); storage_write(); ESPRestart(); }
+    if ( command == "TELNET" && cmd_value !="") { config.TELNET = bool(cmd_value.toInt()); storage_write(); mqtt_publish(mqtt_pathcomd, "TELNET", "", true); telnet_setup(); }
+    if ( command == "OTA" && cmd_value !="") { config.OTA = bool(cmd_value.toInt()); storage_write(); mqtt_publish(mqtt_pathcomd, "OTA", "", true); global_restart(); }
     if ( command == "NTP") if (bool(cmd_value.toInt()) == true) { getNTPtime(); mqtt_publish(mqtt_pathtele, "DateTime", String(curDateTime()));}
 #ifndef ESP8285
     if ( command == "WEB") { config.WEB = bool(cmd_value.toInt()); storage_write(); web_setup(); }
@@ -233,7 +233,7 @@ void telnet_loop() {
         if (telnetServer.hasClient()) {
             if (telnetClient && telnetClient.connected()) {
                 // Verify if the IP is same than actual conection
-                newClient = telnetServer.available();
+                newClient = telnetServer.accept();
                 if (newClient.remoteIP() == telnetClient.remoteIP() ) {
                     // Reconnect
                     telnetClient.stop();
@@ -247,7 +247,7 @@ void telnet_loop() {
             }
             else {
                 // New TCP client
-                telnetClient = telnetServer.available();
+                telnetClient = telnetServer.accept();
                 telnetClient.setNoDelay(true);      // Faster... ?
                 telnetClient.flush();               // clear input buffer, else you get strange characters
                 TELNET_Timer = millis();            // initiate timer for inactivity

@@ -132,18 +132,6 @@ void mqtt_disconnect() {
 }
 
 
-void mqtt_restart() {
-    mqtt_publish(mqtt_pathtele, "Status", "Restarting");
-    mqtt_disconnect();
-}
-
-
-void mqtt_reset() {
-    mqtt_publish(mqtt_pathtele, "Status", "Reseting");
-    mqtt_disconnect();
-}
-
-
 void mqtt_wait_loop(unsigned long wait_timeout = rstr_syn_timeout) {
     unsigned long start_time = millis();
     while (millis() - start_time < wait_timeout )
